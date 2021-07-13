@@ -1,0 +1,11 @@
+[sources.haproxy]
+  type = "syslog"
+  address = "0.0.0.0:514"
+  mode = "udp"
+
+
+[sinks.stdout]
+  type = "console"
+  inputs = ["haproxy"]
+  target = "stdout"
+  encoding.codec = "json"

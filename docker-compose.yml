@@ -1,0 +1,12 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  haproxy:
+    build: haproxy/
+    ports:
+      - "5022:22"
+      - "5080:80"
+      - "5443:443"
+  vector:
+    build: vector/
+    ports:
+      - "6514:514"
