@@ -3,9 +3,18 @@
   address = "0.0.0.0:514"
   mode = "udp"
 
+[transforms.parse_logfmt]
+type = "remap"
+inputs = ["haproxy"]
+source = '''
+.message, err = parse_key_value(.message)
+if err != null {
+  log("Unable to parse logfmt: " + err, level: "error")
+}
+'''
 
 [sinks.stdout]
   type = "console"
-  inputs = ["haproxy"]
+  inputs = ["haproxy", "parse_logfmt"]
   target = "stdout"
   encoding.codec = "json"
