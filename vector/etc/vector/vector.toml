@@ -125,6 +125,10 @@ if err != null {
   if .ssl_version == "-" {
     del(.ssl_version)
   }
+
+  if .user_agent == "" {
+    del(.user_agent)
+  }
 }
 '''
 
