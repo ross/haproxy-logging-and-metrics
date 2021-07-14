@@ -1,3 +1,7 @@
+[api]
+  enabled = true
+  address = "0.0.0.0:8686"
+
 [sources.haproxy]
   type = "syslog"
   address = "0.0.0.0:514"
@@ -13,8 +17,8 @@ if err != null {
   log("Unable to parse logfmt: " + err, level: "error")
 } else {
   # type conversion
-  .bytes_read = to_int(.bytes_read) ?? .bytes_read
-  .bytes_uploaded = to_int(.bytes_uploaded) ?? .bytes_uploaded
+  .bytes_response = to_int(.bytes_response) ?? .bytes_response
+  .bytes_request = to_int(.bytes_request) ?? .bytes_request
   .client_port = to_int(.client_port) ?? .client_port
   .fc_reordering = to_int(.fc_reordering) ?? .fc_reordering
   .fc_retrans = to_int(.fc_retrans) ?? .fc_retrans
@@ -24,7 +28,11 @@ if err != null {
   .request_timestamp = to_int(.request_timestamp) ?? .request_timestamp
   .retries = to_int(.retries) ?? .retries
   .status_code = to_int(.status_code) ?? .status_code
-  .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
+  if .time_backend_connect == "-1" {
+    del(.time_backend_connect)
+  } else if exists(.time_backend_connect) {
+    .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
+  }
   .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
   .time_connect = to_int(.time_connect) ?? .time_connect
   .time_idle = to_int(.time_idle) ?? .time_idle
@@ -36,8 +44,106 @@ if err != null {
 }
 '''
 
+[transforms.haproxy_metrics]
+  type = "log_to_metric"
+  inputs = ["parse_logfmt"]
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "time_response"
+    increment_by_value = true
+    name = "time_response"
+    namespace = "haproxy"
+    type = "distribution"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "bytes_response"
+    increment_by_value = true
+    name = "bytes_response"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "bytes_request"
+    increment_by_value = true
+    name = "bytes_request"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "termination_state"
+    name = "termination_state"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+    tags.termination_state = "{{termination_state}}"
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "fc_retrans"
+    increment_by_value = true
+    name = "fc_retrans"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+    # TODO: ASN, country
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "fc_rtt"
+    increment_by_value = true
+    name = "fc_rtt"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+    # TODO: ASN, country
+
+  [[transforms.haproxy_metrics.metrics]]
+    field = "time_backend_connect"
+    increment_by_value = true
+    name = "time_backend_connect"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.method = "{{method}}"
+    # TODO: class
+    tags.status_class = "{{status_code}}"
+
+
 [sinks.stdout]
   type = "console"
-  inputs = ["haproxy", "parse_logfmt"]
+  inputs = ["haproxy_metrics", "parse_logfmt"]
   target = "stdout"
   encoding.codec = "json"
