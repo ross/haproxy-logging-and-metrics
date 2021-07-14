@@ -54,6 +54,7 @@ if err != null {
     del(.status_code)
   } else {
     .status_code = to_int(.status_code) ?? .status_code
+    # nested if b/c of this bug https://github.com/timberio/vector/issues/8284
     .status_class = if .status_code < 200 {
       "1xx"
     } else {
