@@ -16,14 +16,36 @@ source = '''
 if err != null {
   log("Unable to parse logfmt: " + err, level: "error")
 } else {
-  # type conversion
+  ## type conversion
+
   .bytes_response = to_int(.bytes_response) ?? .bytes_response
   .bytes_request = to_int(.bytes_request) ?? .bytes_request
   .client_port = to_int(.client_port) ?? .client_port
-  .fc_reordering = to_int(.fc_reordering) ?? .fc_reordering
-  .fc_retrans = to_int(.fc_retrans) ?? .fc_retrans
-  .fc_rtt = to_int(.fc_rtt) ?? .fc_rtt
-  .fc_rttvar = to_int(.fc_rttvar) ?? .fc_rttvar
+
+  if .fc_reordering == "-" {
+    del(.fc_reordering)
+  } else if exists(.fc_reordering) {
+    .fc_reordering = to_int(.fc_reordering) ?? .fc_reordering
+  }
+
+  if .fc_retrans == "-" {
+    del(.fc_retrans)
+  } else if exists(.fc_retrans) {
+    .fc_retrans = to_int(.fc_retrans) ?? .fc_retrans
+  }
+
+  if .fc_rtt == "-" {
+    del(.fc_rtt)
+  } else if exists(.fc_rtt) {
+    .fc_rtt = to_int(.fc_rtt) ?? .fc_rtt
+  }
+
+  if .fc_rttvar == "-" {
+    del(.fc_rttvar)
+  } else if exists(.fc_rttvar) {
+    .fc_rttvar = to_int(.fc_rttvar) ?? .fc_rttvar
+  }
+
   .frontend_port = to_int(.frontend_port) ?? .frontend_port
   .request_timestamp = to_int(.request_timestamp) ?? .request_timestamp
   .retries = to_int(.retries) ?? .retries
@@ -57,14 +79,52 @@ if err != null {
     .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
   }
 
-  .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
+  if .time_backend_response == "-1" {
+    del(.time_backend_response)
+  } else if exists(.time_backend_response) {
+    .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
+  }
+
   .time_connect = to_int(.time_connect) ?? .time_connect
   .time_idle = to_int(.time_idle) ?? .time_idle
-  .time_request = to_int(.time_request) ?? .time_request
+
+  if .time_request == "-1" {
+    del(.time_request)
+  } else if exists(.time_request) {
+    .time_request = to_int(.time_request) ?? .time_request
+  }
+
   .time_response = to_int(.time_response) ?? .time_response
   .time_total = to_int(.time_total) ?? .time_total
   .time_user_est = to_int(.time_user_est) ?? .time_user_est
-  .time_waiting = to_int(.time_waiting) ?? .time_waiting
+
+  if .time_waiting == "-1" {
+    del(.time_waiting)
+  } else if exists(.time_waiting) {
+    .time_waiting = to_int(.time_waiting) ?? .time_waiting
+  }
+
+  ## Cleanup (of things that don't require conversion)
+
+  if .host_header == "" {
+    del(.host_header)
+  }
+
+  if .real_ip == "-" {
+    del(.real_ip)
+  }
+
+  if .request_id == "-" {
+    del(.request_id)
+  }
+
+  if .ssl_ciphers == "-" {
+    del(.ssl_ciphers)
+  }
+
+  if .ssl_version == "-" {
+    del(.ssl_version)
+  }
 }
 '''
 
