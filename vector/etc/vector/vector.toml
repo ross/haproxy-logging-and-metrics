@@ -27,12 +27,36 @@ if err != null {
   .frontend_port = to_int(.frontend_port) ?? .frontend_port
   .request_timestamp = to_int(.request_timestamp) ?? .request_timestamp
   .retries = to_int(.retries) ?? .retries
-  .status_code = to_int(.status_code) ?? .status_code
+
+  if .status_code == "-1" {
+    del(.status_code)
+  } else {
+    .status_code = to_int(.status_code) ?? .status_code
+    .status_class = if .status_code < 200 {
+      "1xx"
+    } else {
+      if .status_code < 300 {
+        "2xx"
+      } else {
+        if .status_code < 400 {
+          "3xx"
+        } else {
+          if .status_code < 500 {
+            "4xx"
+          } else {
+            "5xx"
+          }
+        }
+      }
+    }
+  }
+
   if .time_backend_connect == "-1" {
     del(.time_backend_connect)
   } else if exists(.time_backend_connect) {
     .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
   }
+
   .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
   .time_connect = to_int(.time_connect) ?? .time_connect
   .time_idle = to_int(.time_idle) ?? .time_idle
@@ -50,16 +74,14 @@ if err != null {
 
   [[transforms.haproxy_metrics.metrics]]
     field = "time_response"
-    increment_by_value = true
     name = "time_response"
     namespace = "haproxy"
-    type = "distribution"
+    type = "histogram"
 
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
 
   [[transforms.haproxy_metrics.metrics]]
     field = "bytes_response"
@@ -71,8 +93,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
 
   [[transforms.haproxy_metrics.metrics]]
     field = "bytes_request"
@@ -84,8 +105,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
 
   [[transforms.haproxy_metrics.metrics]]
     field = "termination_state"
@@ -96,8 +116,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
     tags.termination_state = "{{termination_state}}"
 
   [[transforms.haproxy_metrics.metrics]]
@@ -110,8 +129,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
     # TODO: ASN, country
 
   [[transforms.haproxy_metrics.metrics]]
@@ -124,8 +142,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
+    tags.status_class = "{{status_class}}"
     # TODO: ASN, country
 
   [[transforms.haproxy_metrics.metrics]]
@@ -138,9 +155,7 @@ if err != null {
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
     tags.method = "{{method}}"
-    # TODO: class
-    tags.status_class = "{{status_code}}"
-
+    tags.status_class = "{{status_class}}"
 
 [sinks.stdout]
   type = "console"
