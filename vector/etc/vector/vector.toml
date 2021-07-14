@@ -7,9 +7,32 @@
 type = "remap"
 inputs = ["haproxy"]
 source = '''
-.message, err = parse_key_value(.message)
+# parse logfmt
+., err = parse_key_value(.message)
 if err != null {
   log("Unable to parse logfmt: " + err, level: "error")
+} else {
+  # type conversion
+  .bytes_read = to_int(.bytes_read) ?? .bytes_read
+  .bytes_uploaded = to_int(.bytes_uploaded) ?? .bytes_uploaded
+  .client_port = to_int(.client_port) ?? .client_port
+  .fc_reordering = to_int(.fc_reordering) ?? .fc_reordering
+  .fc_retrans = to_int(.fc_retrans) ?? .fc_retrans
+  .fc_rtt = to_int(.fc_rtt) ?? .fc_rtt
+  .fc_rttvar = to_int(.fc_rttvar) ?? .fc_rttvar
+  .frontend_port = to_int(.frontend_port) ?? .frontend_port
+  .request_timestamp = to_int(.request_timestamp) ?? .request_timestamp
+  .retries = to_int(.retries) ?? .retries
+  .status_code = to_int(.status_code) ?? .status_code
+  .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
+  .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
+  .time_connect = to_int(.time_connect) ?? .time_connect
+  .time_idle = to_int(.time_idle) ?? .time_idle
+  .time_request = to_int(.time_request) ?? .time_request
+  .time_response = to_int(.time_response) ?? .time_response
+  .time_total = to_int(.time_total) ?? .time_total
+  .time_user_est = to_int(.time_user_est) ?? .time_user_est
+  .time_waiting = to_int(.time_waiting) ?? .time_waiting
 }
 '''
 
