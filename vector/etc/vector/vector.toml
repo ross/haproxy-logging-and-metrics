@@ -7,15 +7,36 @@
   address = "0.0.0.0:514"
   mode = "udp"
 
-[transforms.streams]
-  type = "route"
-  inputs = ["haproxy"]
-  route.healthcheck = 'starts_with(.message, "Health check") ?? false'
-  route.loglines = '!starts_with(.message, "Health check") ?? false'
-
-[transforms.parse_logfmt]
+# Mark each message with an initial type for routing
+[transforms.mark_log_type]
   type = "remap"
-  inputs = ["streams.loglines"]
+  inputs = ["haproxy"]
+  source = '''
+if contains!(.message, "bytes_rx=") {
+  .log_type = "request"
+} else if contains!(.message, " check for ") {
+  .log_type = "health_check"
+} else if ends_with!(.message, " remaining in queue.") {
+  .log_type = "health_status"
+} else if ends_with!(.message, " no server available!") {
+  .log_type = "health_down"
+} else {
+  .log_type = "misc"
+}
+'''
+
+[transforms.log_type]
+  type = "route"
+  inputs = ["mark_log_type"]
+  route.request = '.log_type == "request"'
+  route.health_check = '.log_type == "health_check"'
+  route.health_status = '.log_type == "health_status"'
+  route.health_down = '.log_type == "health_down"'
+  route.misc = '.log_type == "misc"'
+
+[transforms.parse_request]
+  type = "remap"
+  inputs = ["log_type.request"]
   source = '''
 # try and parse logfmt, we're ok with it failing and even expect it to for healthchecks and other non-connect/request messages
 ., err = parse_key_value(.message)
@@ -159,26 +180,35 @@ if err == null {
   if .user_agent == "" {
     .user_agent = null
   }
+
+  # Refine log_type
+  if exists(.ssl_version) {
+    .log_type = "https"
+  } else if exists(.request_id) {
+    .log_type = "http"
+  } else {
+    .log_type = "tcp"
+  }
 }
 '''
 
-[transforms.type]
+[transforms.request_type]
   type = "route"
-  inputs = ["parse_logfmt"]
-  route.tcp = '!exists(.request_id)'
-  route.http = 'exists(.request_id) && !exists(.ssl_ciphers)'
-  route.https = 'exists(.ssl_ciphers)'
+  inputs = ["parse_request"]
+  route.tcp = '.log_type == "tcp"'
+  route.http = '.log_type == "http"'
+  route.https = '.log_type == "https"'
 
 # Things that only make sense for tcp connections
 # Nothing at this point...
-#[transforms.metrics_tcp]
+#[transforms.metric_tcp]
 
 # Things that only make sense for https connections
-[transforms.metrics_https]
+[transforms.metric_https]
   type = "log_to_metric"
-  inputs = ["type.https"]
+  inputs = ["request_type.https"]
 
-  [[transforms.metrics_https.metrics]]
+  [[transforms.metric_https.metrics]]
     field = "ssl_version"
     name = "ssl"
     namespace = "haproxy"
@@ -191,11 +221,11 @@ if err == null {
     tags.ssl_ciphers = "{{ssl_ciphers}}"
 
 # Things that make sense for http(s) connections
-[transforms.metrics_http]
+[transforms.metric_http]
   type = "log_to_metric"
-  inputs = ["type.http", "type.https"]
+  inputs = ["request_type.http", "request_type.https"]
 
-  [[transforms.metrics_http.metrics]]
+  [[transforms.metric_http.metrics]]
     field = "time_response"
     name = "time_response"
     namespace = "haproxy"
@@ -207,7 +237,7 @@ if err == null {
     tags.method = "{{method}}"
     tags.status_class = "{{status_class}}"
 
-  [[transforms.metrics_http.metrics]]
+  [[transforms.metric_http.metrics]]
     field = "version"
     name = "version"
     namespace = "haproxy"
@@ -218,11 +248,11 @@ if err == null {
     tags.frontend_port = "{{frontend_port}}"
 
 # Things that make sense for all connections
-[transforms.metrics_all]
+[transforms.metric_all]
   type = "log_to_metric"
-  inputs = ["type.tcp", "type.http", "type.https"]
+  inputs = ["request_type.tcp", "request_type.http", "request_type.https"]
 
-  [[transforms.metrics_all.metrics]]
+  [[transforms.metric_all.metrics]]
     field = "bytes_rx"
     increment_by_value = true
     name = "bytes_rx"
@@ -234,7 +264,7 @@ if err == null {
     tags.frontend_port = "{{frontend_port}}"
     tags.termination_state = "{{termination_state}}"
 
-  [[transforms.metrics_all.metrics]]
+  [[transforms.metric_all.metrics]]
     field = "bytes_tx"
     increment_by_value = true
     name = "bytes_tx"
@@ -246,7 +276,7 @@ if err == null {
     tags.frontend_port = "{{frontend_port}}"
     tags.termination_state = "{{termination_state}}"
 
-  [[transforms.metrics_all.metrics]]
+  [[transforms.metric_all.metrics]]
     field = "time_backend_connect"
     increment_by_value = true
     name = "time_backend_connect"
@@ -255,7 +285,7 @@ if err == null {
 
     tags.backend_name = "{{backend_name}}"
 
-  [[transforms.metrics_all.metrics]]
+  [[transforms.metric_all.metrics]]
     field = "time_total"
     increment_by_value = true
     name = "time_total"
@@ -267,26 +297,77 @@ if err == null {
     tags.frontend_port = "{{frontend_port}}"
     tags.termination_state = "{{termination_state}}"
 
-# TODO: once aggregate is in the release
-#[transforms.aggregate]
-#  type = "aggregate"
-#  inputs = ["metrics*"]
-#  interval_ms = 10000
+# Health check for server httpbin/nghttp2 succeeded, reason: Layer7 check passed, code: 200, check duration: 362ms, status: 3/3 UP.
+# Health check for server httpbin/nghttp3 failed, reason: Layer4 timeout, check duration: 15002ms, status: 0/2 DOWN.
+# Health check for server tcpchecks/nghttp2 failed, reason: Layer7 invalid response, info: "TCPCHK got an empty response at step 2", check duration: 189ms, status: 0/2 DOWN.
+# Health check for server tcpchecks/nghttp3 failed, reason: Layer4 timeout, info: " at initial connection step of tcp-check", check duration: 15008ms, status: 0/2 DOWN.
+#
+# Relivant code bits are found at:
+# https://github.com/haproxy/haproxy/blob/6a510907807b7fb901654b4f5e5100aa91868fb7/src/check.c#L524-L544
+# https://github.com/haproxy/haproxy/blob/6a510907807b7fb901654b4f5e5100aa91868fb7/src/server.c#L1325-L1381
+# https://github.com/haproxy/haproxy/blob/6a510907807b7fb901654b4f5e5100aa91868fb7/src/server.c#L1340-L1359
+# https://github.com/haproxy/haproxy/blob/6a510907807b7fb901654b4f5e5100aa91868fb7/src/check.c#L317-L348
+#
+# Going to break this up to avoid a single mega-regex from a
+# readability/maintainability standpoint. It'll probably be a less performant,
+# but these shouldn't be THAT high volume in most cases. Once they're all
+# sorted/working maybe we can explore combining them if it makes sense.
+[transforms.parse_health_check]
+  type = "remap"
+  inputs = ["log_type.health_check"]
+  source = '''
+## Initial "check for", backend, server and result
+. |= parse_regex!(.message, r'^(?P<type>Health|Agent) check for (?P<backup>backup )?server (?P<backend>[\w\-]+)/(?P<server>[\w\-]+) (conditionally )?(?P<result>succeeded|failed)')
+
+# reason, code
+. |= parse_regex(.message, r', reason: (?P<reason>[^,]+)(, code: (?P<code>\d+))?') ?? {}
+
+# info
+. |= parse_regex(.message, r', info: "(?P<info>[^"]+)",') ?? {}
+
+# duration
+. |= parse_regex(.message, r', check duration: (?P<duration>\d+)ms') ?? {}
+
+# status
+. |= parse_regex(.message, r', status: (?P<count>\d+)/(?P<of>\d+) (?P<status>UP|DRAIN|DOWN)') ?? {}
+'''
+
+# Server httpbin/nghttp3 is DOWN. 1 active and 0 backup servers left. 0 sessions active, 0 requeued, 0 remaining in queue.
+# Server tcpchecks/nghttp2 is DOWN. 1 active and 0 backup servers left. 0 sessions active, 0 requeued, 0 remaining in queue.
+[transforms.parse_health_status]
+  type = "remap"
+  inputs = ["log_type.health_status"]
+  source = '''
+. |= parse_regex!(.message, r'^Server (?P<backend>[\w\-]+)/(?P<server>[\w\-]+) is (?P<status>UP|DOWN)\. (?P<active>\d+) active and (?P<backup>\d+) backup servers left. (?P<sessions_active>\d+) sessions active, (?P<sessions_requeued>\d+) requeued, (?P<sessions_remaining>\d+) remaining in queue.')
+'''
+
+[transforms.parse_health_down]
+  type = "remap"
+  inputs = ["log_type.health_down"]
+  source = '''
+. |= parse_regex!(.message, r'^backend (?P<backend>[\w\-]+) has no server available!')
+'''
 
 [sinks.datadog_logs]
   type = "datadog_logs"
-  inputs = ["parse_logfmt", "streams.healthcheck"]
+  inputs = ["log_type.misc", "parse*"]
   default_api_key = "${DATADOG_API_KEY}"
   [sinks.datadog_logs.encoding]
     codec = "json"
 
-[sinks.datadog_metrics]
+# TODO: once aggregate is in the released version
+#[transforms.aggregate_metric]
+#  type = "aggregate"
+#  inputs = ["metric*"]
+#  interval_ms = 10000
+
+[sinks.datadog_metric]
   type = "datadog_metrics"
-  inputs = ["metrics*"]
+  inputs = ["metric*"]
   api_key = "${DATADOG_API_KEY}"
 
 [sinks.stdout]
   type = "console"
-  inputs = ["streams.healthcheck"]
+  inputs = ["parse*", "metric*"]
   target = "stdout"
   encoding.codec = "json"
