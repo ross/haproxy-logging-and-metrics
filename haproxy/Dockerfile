@@ -5,7 +5,7 @@ WORKDIR /workdir
 # We need to be root for the next bit
 USER root
 
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates openssl && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/haproxy/ssl
 # Based on https://gist.github.com/yuezhu/47b15b4b8e944221861ccf7d7f5868f5
