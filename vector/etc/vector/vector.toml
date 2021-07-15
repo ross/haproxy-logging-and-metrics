@@ -267,6 +267,13 @@ if err == null {
 #  inputs = ["metrics*"]
 #  interval_ms = 10000
 
+[sinks.datadog_logs]
+  type = "datadog_logs"
+  inputs = ["parse_logfmt"]
+  default_api_key = "${DATADOG_API_KEY}"
+  [sinks.datadog_logs.encoding]
+    codec = "json"
+
 [sinks.datadog_metrics]
   type = "datadog_metrics"
   inputs = ["metrics*"]
