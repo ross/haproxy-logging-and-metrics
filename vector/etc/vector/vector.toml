@@ -8,52 +8,78 @@
   mode = "udp"
 
 [transforms.parse_logfmt]
-type = "remap"
-inputs = ["haproxy"]
-source = '''
-# parse logfmt
+  type = "remap"
+  inputs = ["haproxy"]
+  source = '''
+# try and parse logfmt, we're ok with it failing and even expect it to for healthchecks and other non-connect/request messages
 ., err = parse_key_value(.message)
-if err != null {
-  log("Unable to parse logfmt: " + err, level: "error")
-} else {
-  ## type conversion
+if err == null {
+  ## type conversion & data cleanup
 
-  .bytes_response = to_int(.bytes_response) ?? .bytes_response
-  .bytes_request = to_int(.bytes_request) ?? .bytes_request
-  .client_port = to_int(.client_port) ?? .client_port
+  if exists(.bytes_rx) {
+    .bytes_rx = to_int(.bytes_rx) ?? .bytes_rx
+  }
+
+  if exists(.bytes_tx) {
+    .bytes_tx = to_int(.bytes_tx) ?? .bytes_tx
+  }
+
+  if exists(.client_port) {
+    .client_port = to_int(.client_port) ?? .client_port
+  }
 
   if .fc_reordering == "-" {
-    del(.fc_reordering)
+    .fc_reordering = null
   } else if exists(.fc_reordering) {
-    .fc_reordering = to_int(.fc_reordering) ?? .fc_reordering
+    .fc_reordering = to_int(.fc_reordering)
   }
 
   if .fc_retrans == "-" {
-    del(.fc_retrans)
+    .fc_retrans = null
   } else if exists(.fc_retrans) {
-    .fc_retrans = to_int(.fc_retrans) ?? .fc_retrans
+    .fc_retrans = to_int(.fc_retrans)
   }
 
   if .fc_rtt == "-" {
-    del(.fc_rtt)
+    .fc_rtt = null
   } else if exists(.fc_rtt) {
-    .fc_rtt = to_int(.fc_rtt) ?? .fc_rtt
+    .fc_rtt = to_int(.fc_rtt)
   }
 
   if .fc_rttvar == "-" {
-    del(.fc_rttvar)
+    .fc_rttvar = null
   } else if exists(.fc_rttvar) {
-    .fc_rttvar = to_int(.fc_rttvar) ?? .fc_rttvar
+    .fc_rttvar = to_int(.fc_rttvar)
   }
 
-  .frontend_port = to_int(.frontend_port) ?? .frontend_port
-  .request_timestamp = to_int(.request_timestamp) ?? .request_timestamp
-  .retries = to_int(.retries) ?? .retries
+  if exists(.frontend_port) {
+    .frontend_port = to_int(.frontend_port) ?? .frontend_port
+  }
+
+  if .host_header == "" {
+    .host_header = null
+  }
+
+  if .real_ip == "-" {
+    .real_ip = null
+  }
+
+  if exists(.retries) {
+    .retries = to_int(.retries) ?? .retries
+  }
+
+  if .ssl_ciphers == "-" {
+    .ssl_ciphers = null
+  }
+
+  if .ssl_version == "-" {
+    .ssl_version = null
+  }
 
   if .status_code == "-1" {
-    del(.status_code)
-  } else {
-    .status_code = to_int(.status_code) ?? .status_code
+    .status_code = null
+  } else if exists(.status_code) {
+    .status_code = to_int(.status_code)
     # nested if b/c of this bug https://github.com/timberio/vector/issues/8284
     .status_class = if .status_code < 200 {
       "1xx"
@@ -75,69 +101,95 @@ if err != null {
   }
 
   if .time_backend_connect == "-1" {
-    del(.time_backend_connect)
+    .time_backend_connect = null
   } else if exists(.time_backend_connect) {
-    .time_backend_connect = to_int(.time_backend_connect) ?? .time_backend_connect
+    .time_backend_connect = to_int(.time_backend_connect)
   }
 
   if .time_backend_response == "-1" {
-    del(.time_backend_response)
+    .time_backend_response = null
   } else if exists(.time_backend_response) {
-    .time_backend_response = to_int(.time_backend_response) ?? .time_backend_response
+    .time_backend_response = to_int(.time_backend_response)
   }
 
-  .time_connect = to_int(.time_connect) ?? .time_connect
-  .time_idle = to_int(.time_idle) ?? .time_idle
+  if exists(.time_connect) {
+    .time_connect = to_int(.time_connect) ?? .time_connect
+  }
+
+  if exists(.time_idle) {
+    .time_idle = to_int(.time_idle) ?? .time_idle
+  }
 
   if .time_request == "-1" {
-    del(.time_request)
+    .time_request = null
   } else if exists(.time_request) {
-    .time_request = to_int(.time_request) ?? .time_request
+    .time_request = to_int(.time_request)
   }
 
-  .time_response = to_int(.time_response) ?? .time_response
-  .time_total = to_int(.time_total) ?? .time_total
-  .time_user_est = to_int(.time_user_est) ?? .time_user_est
+  if .time_response == "-1" {
+    .time_response = null
+  } else if exists(.time_response) {
+    .time_response = to_int(.time_response)
+  }
+
+  if exists(.time_start) {
+    .time_start = to_int(.time_start) ?? .time_start
+  }
+
+  if exists(.time_total) {
+    .time_total = to_int(.time_total) ?? .time_total
+  }
+
+  if exists(.time_user_est) {
+    .time_user_est = to_int(.time_user_est) ?? .time_user_est
+  }
 
   if .time_waiting == "-1" {
-    del(.time_waiting)
+    .time_waiting = null
   } else if exists(.time_waiting) {
-    .time_waiting = to_int(.time_waiting) ?? .time_waiting
-  }
-
-  ## Cleanup (of things that don't require conversion)
-
-  if .host_header == "" {
-    del(.host_header)
-  }
-
-  if .real_ip == "-" {
-    del(.real_ip)
-  }
-
-  if .request_id == "-" {
-    del(.request_id)
-  }
-
-  if .ssl_ciphers == "-" {
-    del(.ssl_ciphers)
-  }
-
-  if .ssl_version == "-" {
-    del(.ssl_version)
+    .time_waiting = to_int(.time_waiting)
   }
 
   if .user_agent == "" {
-    del(.user_agent)
+    .user_agent = null
   }
 }
 '''
 
-[transforms.haproxy_metrics]
-  type = "log_to_metric"
+[transforms.type]
+  type = "route"
   inputs = ["parse_logfmt"]
+  route.tcp = '!exists(.request_id)'
+  route.http = 'exists(.request_id) && !exists(.ssl_ciphers)'
+  route.https = 'exists(.ssl_ciphers)'
 
-  [[transforms.haproxy_metrics.metrics]]
+# Things that only make sense for tcp connections
+# Nothing at this point...
+#[transforms.metrics_tcp]
+
+# Things that only make sense for https connections
+[transforms.metrics_https]
+  type = "log_to_metric"
+  inputs = ["type.https"]
+
+  [[transforms.metrics_https.metrics]]
+    field = "ssl_version"
+    name = "ssl"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.frontend_port = "{{frontend_port}}"
+    tags.ssl_version = "{{ssl_version}}"
+    tags.ssl_ciphers = "{{ssl_ciphers}}"
+
+# Things that make sense for http(s) connections
+[transforms.metrics_http]
+  type = "log_to_metric"
+  inputs = ["type.http", "type.https"]
+
+  [[transforms.metrics_http.metrics]]
     field = "time_response"
     name = "time_response"
     namespace = "haproxy"
@@ -145,85 +197,83 @@ if err != null {
 
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
+    tags.frontend_port = "{{frontend_port}}"
     tags.method = "{{method}}"
     tags.status_class = "{{status_class}}"
 
-  [[transforms.haproxy_metrics.metrics]]
-    field = "bytes_response"
+  [[transforms.metrics_http.metrics]]
+    field = "version"
+    name = "version"
+    namespace = "haproxy"
+    type = "counter"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.frontend_port = "{{frontend_port}}"
+
+# Things that make sense for all connections
+[transforms.metrics_all]
+  type = "log_to_metric"
+  inputs = ["type.tcp", "type.http", "type.https"]
+
+  [[transforms.metrics_all.metrics]]
+    field = "bytes_rx"
     increment_by_value = true
-    name = "bytes_response"
+    name = "bytes_rx"
     namespace = "haproxy"
-    type = "counter"
+    type = "histogram"
 
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
-
-  [[transforms.haproxy_metrics.metrics]]
-    field = "bytes_request"
-    increment_by_value = true
-    name = "bytes_request"
-    namespace = "haproxy"
-    type = "counter"
-
-    tags.backend_name = "{{backend_name}}"
-    tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
-
-  [[transforms.haproxy_metrics.metrics]]
-    field = "termination_state"
-    name = "termination_state"
-    namespace = "haproxy"
-    type = "counter"
-
-    tags.backend_name = "{{backend_name}}"
-    tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
+    tags.frontend_port = "{{frontend_port}}"
     tags.termination_state = "{{termination_state}}"
 
-  [[transforms.haproxy_metrics.metrics]]
-    field = "fc_retrans"
+  [[transforms.metrics_all.metrics]]
+    field = "bytes_tx"
     increment_by_value = true
-    name = "fc_retrans"
+    name = "bytes_tx"
     namespace = "haproxy"
-    type = "counter"
+    type = "histogram"
 
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
-    # TODO: ASN, country
+    tags.frontend_port = "{{frontend_port}}"
+    tags.termination_state = "{{termination_state}}"
 
-  [[transforms.haproxy_metrics.metrics]]
-    field = "fc_rtt"
-    increment_by_value = true
-    name = "fc_rtt"
-    namespace = "haproxy"
-    type = "counter"
-
-    tags.backend_name = "{{backend_name}}"
-    tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
-    # TODO: ASN, country
-
-  [[transforms.haproxy_metrics.metrics]]
+  [[transforms.metrics_all.metrics]]
     field = "time_backend_connect"
     increment_by_value = true
     name = "time_backend_connect"
     namespace = "haproxy"
-    type = "counter"
+    type = "histogram"
+
+    tags.backend_name = "{{backend_name}}"
+
+  [[transforms.metrics_all.metrics]]
+    field = "time_total"
+    increment_by_value = true
+    name = "time_total"
+    namespace = "haproxy"
+    type = "histogram"
 
     tags.backend_name = "{{backend_name}}"
     tags.frontend_name = "{{frontend_name}}"
-    tags.method = "{{method}}"
-    tags.status_class = "{{status_class}}"
+    tags.frontend_port = "{{frontend_port}}"
+    tags.termination_state = "{{termination_state}}"
+
+# TODO: once aggregate is in the release
+#[transforms.aggregate]
+#  type = "aggregate"
+#  inputs = ["metrics*"]
+#  interval_ms = 10000
+
+[sinks.datadog_metrics]
+  type = "datadog_metrics"
+  inputs = ["metrics*"]
+  api_key = "TODO"
 
 [sinks.stdout]
   type = "console"
-  inputs = ["haproxy_metrics", "parse_logfmt"]
+  inputs = ["type.tcp", "type.http", "type.https", "metrics*"]
   target = "stdout"
   encoding.codec = "json"
