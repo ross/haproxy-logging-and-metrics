@@ -270,7 +270,7 @@ if err == null {
 [sinks.datadog_metrics]
   type = "datadog_metrics"
   inputs = ["metrics*"]
-  api_key = "TODO"
+  api_key = "${DATADOG_API_KEY}"
 
 [sinks.stdout]
   type = "console"

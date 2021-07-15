@@ -8,6 +8,8 @@ services:
       - "5443:443"
   vector:
     build: vector/
+    environment:
+    - DATADOG_API_KEY=${DATADOG_API_KEY}
     ports:
       - "6514:514"
       - "6686:8686"
