@@ -1,5 +1,10 @@
 version: "3.9"  # optional since v1.27.0
 services:
+  backend:
+    build: backend/
+    ports:
+      - "8080:80"
+      - "8081:81"
   flapper:
     build: flapper/
     ports:
@@ -11,6 +16,7 @@ services:
       - "5022:22"
       - "5080:80"
       - "5443:443"
+      - "5888:888"
   vector:
     build: vector/
     environment:

@@ -20,4 +20,4 @@ COPY etc/ /etc
 # We can go back to being haproxy now
 USER haproxy
 
-CMD /usr/local/sbin/haproxy -V -C /etc/haproxy -f /etc/haproxy/haproxy.cfg
+CMD /usr/local/sbin/haproxy -C /etc/haproxy -f /etc/haproxy/haproxy.cfg
