@@ -1,5 +1,10 @@
 version: "3.9"  # optional since v1.27.0
 services:
+  flapper:
+    build: flapper/
+    ports:
+      - "9022:22"
+      - "9080:80"
   haproxy:
     build: haproxy/
     ports:
