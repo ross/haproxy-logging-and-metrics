@@ -368,6 +368,6 @@ if err == null {
 
 [sinks.stdout]
   type = "console"
-  inputs = ["parse*", "metric*"]
+  inputs = ["parse_request"]
   target = "stdout"
   encoding.codec = "json"
