@@ -284,11 +284,24 @@ if err == null {
     type = "histogram"
 
     tags.backend_name = "{{backend_name}}"
+    tags.termination_state = "{{termination_state}}"
 
   [[transforms.metric_all.metrics]]
     field = "time_total"
     increment_by_value = true
     name = "time_total"
+    namespace = "haproxy"
+    type = "histogram"
+
+    tags.backend_name = "{{backend_name}}"
+    tags.frontend_name = "{{frontend_name}}"
+    tags.frontend_port = "{{frontend_port}}"
+    tags.termination_state = "{{termination_state}}"
+
+  [[transforms.metric_all.metrics]]
+    field = "time_user_est"
+    increment_by_value = true
+    name = "time_user_est"
     namespace = "haproxy"
     type = "histogram"
 
