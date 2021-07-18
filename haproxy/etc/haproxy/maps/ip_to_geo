@@ -1,0 +1,10 @@
+# This is all (hopefully obviously) fake
+1.0.0.0/9 NA-US-OR
+1.128.0.0/9 NA-US-CA
+2.0.0.0/8 NA-CA
+3.0.0.0/8 EU-DE
+4.0.0.0/9 EU-GB-London
+4.0.0.0/8 EU-RU
+5.128.0.0/9 EU-GB-Manchester
+6.0.0.0/9 AF-NG
+6.128.0.0/9 AF-ZA

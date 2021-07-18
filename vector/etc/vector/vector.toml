@@ -91,6 +91,14 @@ if err == null {
     .real_ip = null
   }
 
+  if .real_ip_asn == "-" {
+    .real_ip_asn = null
+  }
+
+  if .real_ip_geo == "" {
+    .real_ip_geo = null
+  }
+
   if exists(.retries) {
     .retries = to_int(.retries) ?? .retries
   }
