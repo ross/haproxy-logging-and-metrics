@@ -376,19 +376,18 @@ if err == null {
   [sinks.datadog_logs.encoding]
     codec = "json"
 
-# TODO: once aggregate is in the released version
-#[transforms.aggregate_metric]
-#  type = "aggregate"
-#  inputs = ["metric*"]
-#  interval_ms = 10000
+[transforms.aggregate_metric]
+  type = "aggregate"
+  inputs = ["metric*"]
+  interval_ms = 10000
 
 [sinks.datadog_metric]
   type = "datadog_metrics"
-  inputs = ["metric*"]
+  inputs = ["aggregate_metric"]
   api_key = "${DATADOG_API_KEY}"
 
 [sinks.stdout]
   type = "console"
-  inputs = ["parse_request"]
+  inputs = ["aggregate_metric"]
   target = "stdout"
   encoding.codec = "json"
